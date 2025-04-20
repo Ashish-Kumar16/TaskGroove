@@ -11,8 +11,6 @@ Task Groove is a modern project management web application designed to help team
 - [Project Structure](#project-structure)
 - [Available Pages](#available-pages)
 - [API Integration](#api-integration)
-- [Contributing](#contributing)
-- [License](#license)
 
 ## Features
 
@@ -198,14 +196,4 @@ The application integrates with a backend API at `https://taskgroove.onrender.co
 
 The `src/lib/api.js` file handles API requests with token-based authentication and error handling.
 
-## Contributing
 
-Contributions are welcome! To contribute:
-
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/your-feature`).
-3. Make your changes and commit (`git commit -m "Add your feature"`).
-4. Push to the branch (`git push origin feature/your-feature`).
-5. Open a Pull Request.
-
-Please ensure your code follows the ESLint rules and includes appropriate tests.
