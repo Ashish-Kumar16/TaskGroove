@@ -1,5 +1,7 @@
+// src/pages/Register.jsx
 import React, { useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import {
   Box,
   Container,
@@ -14,6 +16,8 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { useToast } from "@/hooks/use-toast";
+import { register } from "@/lib/api";
+import { setCredentials } from "@/store/authSlice";
 
 const Register = () => {
   const [name, setName] = useState("");
@@ -22,43 +26,106 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { toast } = useToast();
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
+  const validateInputs = () => {
+    if (!name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Name is required.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (!email.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Email is required.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (!password.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Password is required.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (password.length < 6) {
+      toast({
+        title: "Validation Error",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return false;
+    }
     if (password !== confirmPassword) {
       toast({
         title: "Passwords don't match",
         description: "Please make sure your passwords match.",
         variant: "destructive",
       });
+      return false;
+    }
+    return true;
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+
+    if (!validateInputs()) {
       return;
     }
 
     setLoading(true);
 
-    setTimeout(() => {
-      localStorage.setItem("authToken", "mock-jwt-token");
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          id: "1",
-          name,
-          email,
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            name,
-          )}&background=random`,
-        }),
-      );
+    try {
+      const userData = { name, email, password };
+      console.log("Sending register request with payload:", userData);
+      const { token, user } = await register(userData);
+
+      localStorage.setItem("authToken", token);
+      localStorage.setItem("user", JSON.stringify(user));
+      dispatch(setCredentials({ token, user }));
 
       toast({
         title: "Registration successful",
         description: "Your account has been created.",
       });
 
+      console.log("Navigating to home page (/)");
+      setTimeout(() => {
+        navigate("/", { replace: true });
+      }, 100);
+    } catch (error) {
+      console.error("Register error:", {
+        message: error.message,
+        status: error.status,
+        response: error.response,
+      });
+      const errorMessage =
+        error.message === "Email already exists"
+          ? "This email is already registered."
+          : error.message || "Unable to create account.";
+      toast({
+        title: "Registration failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-      navigate("/dashboard");
-    }, 1000);
+    }
   };
 
   return (
@@ -97,6 +164,7 @@ const Register = () => {
                 fullWidth
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
               />
               <TextField
                 id="email"
@@ -107,6 +175,13 @@ const Register = () => {
                 fullWidth
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                error={email && !/\S+@\S+\.\S+/.test(email)}
+                helperText={
+                  email && !/\S+@\S+\.\S+/.test(email)
+                    ? "Please enter a valid email"
+                    : ""
+                }
+                autoComplete="email"
               />
               <TextField
                 id="password"
@@ -116,6 +191,13 @@ const Register = () => {
                 fullWidth
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                error={password && password.length < 6}
+                helperText={
+                  password && password.length < 6
+                    ? "Password must be at least 6 characters"
+                    : ""
+                }
+                autoComplete="new-password"
               />
               <TextField
                 id="confirmPassword"
@@ -125,6 +207,13 @@ const Register = () => {
                 fullWidth
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                error={confirmPassword && confirmPassword !== password}
+                helperText={
+                  confirmPassword && confirmPassword !== password
+                    ? "Passwords do not match"
+                    : ""
+                }
+                autoComplete="new-password"
               />
             </CardContent>
             <CardActions sx={{ flexDirection: "column", gap: 2, p: 2 }}>

@@ -4,8 +4,6 @@ import { styled } from "@mui/material/styles";
 import {
   Box,
   Drawer,
-  AppBar,
-  Toolbar,
   IconButton,
   Typography,
   List,
@@ -25,8 +23,8 @@ import {
   Users,
   Settings,
   LogOut,
-  Menu as MenuIcon,
-  X,
+  ChevronRight,
+  ChevronLeft,
   Home,
 } from "lucide-react";
 
@@ -116,16 +114,16 @@ const DashboardLayout = ({ children }) => {
       >
         <IconButton
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+          aria-label={isMobileMenuOpen ? "Hide sidebar" : "Show sidebar"}
           size="large"
           edge="start"
           sx={{ bgcolor: "background.paper" }}
         >
-          {isMobileMenuOpen ? <X /> : <MenuIcon />}
+          {isMobileMenuOpen ? <ChevronLeft /> : <ChevronRight />}
         </IconButton>
       </Box>
 
-      {/* Sidebar */}
+      {/* Sidebar (Permanent Drawer) */}
       <StyledDrawer
         variant="permanent"
         sx={{
@@ -244,7 +242,104 @@ const DashboardLayout = ({ children }) => {
           "& .MuiDrawer-paper": { width: drawerWidth },
         }}
       >
-        {/* Same content as permanent drawer */}
+        <Box
+          sx={{
+            p: 2,
+            borderBottom: 1,
+            borderColor: "divider",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <Link
+            to="/"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <Home />
+            <Typography variant="h6" fontWeight="bold">
+              Task Groove
+            </Typography>
+          </Link>
+        </Box>
+
+        <List sx={{ px: 2, py: 3 }}>
+          {navItems.map((item) => (
+            <ListItem
+              key={item.path}
+              button
+              component={Link}
+              to={item.path}
+              selected={isActive(item.path)}
+              sx={{
+                borderRadius: 1,
+                mb: 0.5,
+                color: isActive(item.path) ? "primary.main" : "text.primary",
+                bgcolor: isActive(item.path)
+                  ? "primary.lighter"
+                  : "transparent",
+                "&:hover": {
+                  bgcolor: "action.hover",
+                },
+              }}
+              onClick={() => setIsMobileMenuOpen(false)} // Close drawer on item click
+            >
+              <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.label} />
+            </ListItem>
+          ))}
+        </List>
+
+        <Box sx={{ mt: "auto", p: 2, borderTop: 1, borderColor: "divider" }}>
+          <Button
+            onClick={handleOpenUserMenu}
+            sx={{ width: "100%", justifyContent: "flex-start", gap: 2 }}
+          >
+            <Avatar src={user.avatar} alt={user.name}>
+              {user.name.substring(0, 2).toUpperCase()}
+            </Avatar>
+            <Box sx={{ textAlign: "left" }}>
+              <Typography variant="subtitle2">{user.name}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {user.email}
+              </Typography>
+            </Box>
+          </Button>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleCloseUserMenu}
+            transformOrigin={{ horizontal: "right", vertical: "top" }}
+            anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+          >
+            <MenuItem
+              onClick={() => {
+                navigate("/profile");
+                handleCloseUserMenu();
+              }}
+            >
+              Profile
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                navigate("/settings");
+                handleCloseUserMenu();
+              }}
+            >
+              Settings
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={handleLogout} sx={{ color: "error.main" }}>
+              <LogOut size={16} style={{ marginRight: 8 }} />
+              Log out
+            </MenuItem>
+          </Menu>
+        </Box>
       </Drawer>
 
       {/* Main Content */}

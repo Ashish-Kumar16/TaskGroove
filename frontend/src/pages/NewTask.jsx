@@ -19,7 +19,7 @@ import {
 } from "@mui/material";
 import { useToast } from "@/hooks/use-toast";
 import { useAppDispatch, useAppSelector } from "@/hooks/useAppRedux";
-import { addTask } from "@/store/tasksSlice";
+import { createTask } from "@/store/tasksSlice";
 
 const NewTask = () => {
   const navigate = useNavigate();
@@ -31,54 +31,52 @@ const NewTask = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [projectId, setProjectId] = useState("");
-  const [priority, setPriority] = useState("");
+  const [priority, setPriority] = useState("Medium");
   const [dueDate, setDueDate] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
-    const selectedProject = projects.find((p) => p.id === Number(projectId));
-    const selectedMember = members.find((m) => m.id === Number(assigneeId));
-
-    if (!selectedProject || !selectedMember) {
+    if (!projectId || !assigneeId) {
       toast({
         title: "Error",
-        description: "Please select a valid project and assignee.",
+        description: "Please select a project and assignee.",
         variant: "destructive",
       });
       setLoading(false);
       return;
     }
 
-    const newTask = {
-      id: Date.now(),
+    const taskData = {
       title,
       description,
       status: "To Do",
       priority,
       dueDate,
-      project: {
-        id: selectedProject.id,
-        name: selectedProject.name,
-      },
-      assignee: {
-        id: selectedMember.id,
-        name: selectedMember.name,
-        avatar: selectedMember.avatar,
-      },
+      projectId,
+      assigneeId,
       completed: false,
     };
 
-    dispatch(addTask(newTask));
-    toast({
-      title: "Task created",
-      description: "Your new task has been created successfully.",
-    });
-    setLoading(false);
-    navigate("/tasks");
+    try {
+      await dispatch(createTask(taskData)).unwrap();
+      toast({
+        title: "Task created",
+        description: "Your new task has been created successfully.",
+      });
+      navigate("/tasks");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create task.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -123,7 +121,6 @@ const NewTask = () => {
                 minRows={4}
                 fullWidth
               />
-
               <FormControl fullWidth>
                 <InputLabel id="project-label">Project</InputLabel>
                 <Select
@@ -134,13 +131,12 @@ const NewTask = () => {
                   required
                 >
                   {projects.map((project) => (
-                    <MenuItem key={project.id} value={project.id}>
+                    <MenuItem key={project._id} value={project._id}>
                       {project.name}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-
               <FormControl fullWidth>
                 <InputLabel id="assignee-label">Assignee</InputLabel>
                 <Select
@@ -151,13 +147,12 @@ const NewTask = () => {
                   required
                 >
                   {members.map((member) => (
-                    <MenuItem key={member.id} value={member.id}>
+                    <MenuItem key={member._id} value={member._id}>
                       {member.name}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-
               <FormControl fullWidth>
                 <InputLabel id="priority-label">Priority</InputLabel>
                 <Select
@@ -172,7 +167,6 @@ const NewTask = () => {
                   <MenuItem value="High">High</MenuItem>
                 </Select>
               </FormControl>
-
               <TextField
                 label="Due Date"
                 type="date"
@@ -183,19 +177,15 @@ const NewTask = () => {
                 InputLabelProps={{ shrink: true }}
               />
             </CardContent>
-
             <CardActions sx={{ p: 3, justifyContent: "flex-end" }}>
               <Button
                 type="submit"
                 variant="contained"
-                color="primary"
                 disabled={loading}
                 startIcon={loading ? <CircularProgress size={20} /> : null}
                 sx={{
                   background: "black",
-                  "&:hover": {
-                    backgroundColor: "#333333",
-                  },
+                  "&:hover": { backgroundColor: "#333333" },
                 }}
               >
                 {loading ? "Creating..." : "Create Task"}

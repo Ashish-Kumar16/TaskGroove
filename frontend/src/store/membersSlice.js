@@ -1,51 +1,67 @@
-import { createSlice } from "@reduxjs/toolkit";
+// src/store/membersSlice.js
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import * as api from "../lib/api";
 
-const initialState = {
-  members: [
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john@example.com",
-      phone: "+1 (555) 123-4567",
-      role: "Project Manager",
-      avatar: "https://ui-avatars.com/api/?name=John+Doe&background=random",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      email: "jane@example.com",
-      phone: "+1 (555) 234-5678",
-      role: "Frontend Developer",
-      avatar: "https://ui-avatars.com/api/?name=Jane+Smith&background=random",
-    },
-    // ... more members
-  ],
-  loading: false,
-  error: null,
-};
+export const fetchMembers = createAsyncThunk(
+  "members/fetchMembers",
+  async () => {
+    return await api.fetchMembers();
+  },
+);
+
+export const addMember = createAsyncThunk(
+  "members/addMember",
+  async (memberData) => {
+    return await api.addMember(memberData);
+  },
+);
+
+export const updateMember = createAsyncThunk(
+  "members/updateMember",
+  async ({ id, ...memberData }) => {
+    const updatedMember = await api.updateMember(id, memberData);
+    return updatedMember;
+  },
+);
+
+export const deleteMember = createAsyncThunk(
+  "members/deleteMember",
+  async (id) => {
+    await api.deleteMember(id);
+    return id;
+  },
+);
 
 const membersSlice = createSlice({
   name: "members",
-  initialState,
-  reducers: {
-    addMember: (state, action) => {
-      state.members.push(action.payload);
-    },
-    removeMember: (state, action) => {
-      state.members = state.members.filter(
-        (member) => member.id !== action.payload,
-      );
-    },
-    updateMember: (state, action) => {
-      const index = state.members.findIndex(
-        (member) => member.id === action.payload.id,
-      );
-      if (index !== -1) {
-        state.members[index] = action.payload;
-      }
-    },
+  initialState: { members: [], loading: false, error: null },
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchMembers.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchMembers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.members = action.payload;
+      })
+      .addCase(fetchMembers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+      })
+      .addCase(addMember.fulfilled, (state, action) => {
+        state.members.push(action.payload);
+      })
+      .addCase(updateMember.fulfilled, (state, action) => {
+        const index = state.members.findIndex(
+          (m) => m.id === action.payload.id,
+        );
+        if (index !== -1) state.members[index] = action.payload;
+      })
+      .addCase(deleteMember.fulfilled, (state, action) => {
+        state.members = state.members.filter((m) => m.id !== action.payload);
+      });
   },
 });
 
-export const { addMember, removeMember, updateMember } = membersSlice.actions;
 export default membersSlice.reducer;

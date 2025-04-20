@@ -1,5 +1,7 @@
+// src/pages/Login.jsx
 import React, { useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import {
   Box,
   Container,
@@ -14,39 +16,92 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { useToast } from "@/hooks/use-toast";
+import { login } from "@/lib/api";
+import { setCredentials } from "@/store/authSlice";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { toast } = useToast();
+
+  const validateInputs = () => {
+    if (!email.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Email is required.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (!password.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Password is required.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    if (!validateInputs()) {
+      return;
+    }
+
     setLoading(true);
 
-    setTimeout(() => {
-      localStorage.setItem("authToken", "mock-jwt-token");
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          id: "1",
-          name: "Test User",
-          email,
-          avatar:
-            "https://ui-avatars.com/api/?name=Test+User&background=random",
-        }),
-      );
+    try {
+      const credentials = { email, password };
+      console.log("Sending login request with payload:", credentials);
+      const { token, user } = await login(credentials);
+
+      localStorage.setItem("authToken", token);
+      localStorage.setItem("user", JSON.stringify(user));
+      dispatch(setCredentials({ token, user }));
 
       toast({
         title: "Login successful",
         description: "Welcome back!",
       });
 
+      console.log("Navigating to home page (/)");
+      setTimeout(() => {
+        navigate("/", { replace: true });
+      }, 100);
+    } catch (error) {
+      console.error("Login error:", {
+        message: error.message,
+        status: error.status,
+        response: error.response,
+      });
+      const errorMessage =
+        error.message === "Invalid credentials"
+          ? "Incorrect email or password."
+          : error.message === "Please provide email and password"
+          ? "Email and password are required."
+          : error.message || "Unable to log in. Please try again.";
+      toast({
+        title: "Login failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-      navigate("/dashboard");
-    }, 1000);
+    }
   };
 
   return (
@@ -86,6 +141,13 @@ const Login = () => {
                 fullWidth
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                error={!!email && !/\S+@\S+\.\S+/.test(email)}
+                helperText={
+                  email && !/\S+@\S+\.\S+/.test(email)
+                    ? "Please enter a valid email"
+                    : ""
+                }
+                autoComplete="email"
               />
               <Box
                 sx={{
@@ -111,6 +173,7 @@ const Login = () => {
                 fullWidth
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
               />
             </CardContent>
             <CardActions
@@ -148,4 +211,5 @@ const Login = () => {
     </Box>
   );
 };
+
 export default Login;

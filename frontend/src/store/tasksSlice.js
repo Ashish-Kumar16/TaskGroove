@@ -1,58 +1,95 @@
-import { createSlice } from "@reduxjs/toolkit";
+// src/store/tasksSlice.js
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import * as api from "../lib/api";
 
-const initialState = {
-  tasks: [
-    {
-      id: 1,
-      title: "Research competitors",
-      description: "Analyze main competitors' websites and features",
-      status: "Completed",
-      priority: "High",
-      dueDate: "2023-07-01",
-      project: {
-        id: 1,
-        name: "Website Redesign",
-      },
-      assignee: {
-        id: 1,
-        name: "John Doe",
-        avatar: "https://ui-avatars.com/api/?name=John+Doe&background=random",
-      },
-      completed: true,
-    },
-    // ... more tasks
-  ],
-  loading: false,
-  error: null,
-};
+export const fetchTasks = createAsyncThunk("tasks/fetchTasks", async () => {
+  return await api.fetchTasks();
+});
+
+export const fetchAssignedTasks = createAsyncThunk(
+  "tasks/fetchAssignedTasks",
+  async () => {
+    return await api.fetchAssignedTasks();
+  },
+);
+
+export const createTask = createAsyncThunk(
+  "tasks/createTask",
+  async (taskData) => {
+    return await api.createTask(taskData);
+  },
+);
+
+export const updateTask = createAsyncThunk(
+  "tasks/updateTask",
+  async ({ id, ...taskData }) => {
+    const updatedTask = await api.updateTask(id, taskData);
+    return updatedTask;
+  },
+);
+export const fetchTasksByProject = createAsyncThunk(
+  "tasks/fetchTasksByProject",
+  async (projectId) => {
+    const tasks = await api.fetchTasksByProject(projectId);
+    return tasks.map((task) => ({
+      ...task,
+      id: task._id,
+    }));
+  },
+);
+export const deleteTask = createAsyncThunk(
+  "tasks/deleteTask",
+  async (taskId) => {
+    await api.deleteTask(taskId);
+    return taskId;
+  },
+);
 
 const tasksSlice = createSlice({
   name: "tasks",
-  initialState,
-  reducers: {
-    addTask: (state, action) => {
-      state.tasks.push(action.payload);
-    },
-    removeTask: (state, action) => {
-      state.tasks = state.tasks.filter((task) => task.id !== action.payload);
-    },
-    updateTask: (state, action) => {
-      const index = state.tasks.findIndex(
-        (task) => task.id === action.payload.id,
-      );
-      if (index !== -1) {
-        state.tasks[index] = action.payload;
-      }
-    },
-    toggleTaskCompletion: (state, action) => {
-      const task = state.tasks.find((t) => t.id === action.payload);
-      if (task) {
-        task.completed = !task.completed;
-      }
-    },
+  initialState: { tasks: [], loading: false, error: null },
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchTasks.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchTasks.fulfilled, (state, action) => {
+        state.loading = false;
+        state.tasks = action.payload;
+      })
+      .addCase(fetchTasks.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+      })
+      .addCase(fetchAssignedTasks.fulfilled, (state, action) => {
+        state.loading = false;
+        state.tasks = action.payload;
+      })
+      .addCase(createTask.fulfilled, (state, action) => {
+        state.tasks.push(action.payload);
+      })
+      .addCase(updateTask.fulfilled, (state, action) => {
+        const index = state.tasks.findIndex(
+          (t) => t._id === action.payload._id, // Changed to _id
+        );
+        if (index !== -1) state.tasks[index] = action.payload;
+      })
+      .addCase(deleteTask.fulfilled, (state, action) => {
+        state.tasks = state.tasks.filter((t) => t.id !== action.payload);
+      })
+      .addCase(fetchTasksByProject.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchTasksByProject.fulfilled, (state, action) => {
+        state.loading = false;
+        state.tasks = action.payload;
+      })
+      .addCase(fetchTasksByProject.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+      });
   },
 });
 
-export const { addTask, removeTask, updateTask, toggleTaskCompletion } =
-  tasksSlice.actions;
 export default tasksSlice.reducer;

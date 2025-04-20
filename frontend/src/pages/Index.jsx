@@ -1,3 +1,4 @@
+// src/pages/Index.jsx
 import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -15,13 +16,11 @@ import {
 
 const Index = () => {
   const navigate = useNavigate();
+  const authToken = localStorage.getItem("authToken"); // Check if user is logged in
 
   useEffect(() => {
-    const authToken = localStorage.getItem("authToken");
-    if (authToken) {
-      navigate("/dashboard");
-    }
-  }, [navigate]);
+    console.log("Index: Rendered, authToken exists?", !!authToken);
+  }, []);
 
   return (
     <Box
@@ -53,36 +52,54 @@ const Index = () => {
                 variant="h6"
                 sx={{ ml: 1, fontWeight: "bold", color: "black" }}
               >
-                TaskFlow
+                Task Groove
               </Typography>
             </Box>
             <Box>
-              <Button
-                component={Link}
-                to="/login"
-                variant="outlined"
-                sx={{
-                  borderColor: "black",
-                  color: "black",
-                  textTransform: "none",
-                }}
-              >
-                Log In
-              </Button>
-              <Button
-                component={Link}
-                to="/register"
-                variant="contained"
-                sx={{
-                  bgcolor: "black",
-                  color: "white",
-                  ml: 2,
-                  textTransform: "none",
-                  "&:hover": { bgcolor: "grey.800" },
-                }}
-              >
-                Sign Up
-              </Button>
+              {!authToken ? (
+                <>
+                  <Button
+                    component={Link}
+                    to="/login"
+                    variant="outlined"
+                    sx={{
+                      borderColor: "black",
+                      color: "black",
+                      textTransform: "none",
+                    }}
+                  >
+                    Log In
+                  </Button>
+                  <Button
+                    component={Link}
+                    to="/register"
+                    variant="contained"
+                    sx={{
+                      bgcolor: "black",
+                      color: "white",
+                      ml: 2,
+                      textTransform: "none",
+                      "&:hover": { bgcolor: "grey.800" },
+                    }}
+                  >
+                    Sign Up
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  component={Link}
+                  to="/dashboard"
+                  variant="contained"
+                  sx={{
+                    bgcolor: "black",
+                    color: "white",
+                    textTransform: "none",
+                    "&:hover": { bgcolor: "grey.800" },
+                  }}
+                >
+                  Go to Dashboard
+                </Button>
+              )}
             </Box>
           </Toolbar>
         </Container>
@@ -101,13 +118,13 @@ const Index = () => {
                 Manage projects with ease and efficiency
               </Typography>
               <Typography variant="h6" color="textSecondary">
-                TaskFlow helps teams organize, track, and manage their work in a
-                visual, collaborative, and flexible way.
+                Task Groove helps teams organize, track, and manage their work
+                in a visual, collaborative, and flexible way.
               </Typography>
               <Box sx={{ display: "flex", gap: 2, pt: 2 }}>
                 <Button
                   component={Link}
-                  to="/register"
+                  to={authToken ? "/dashboard" : "/register"}
                   variant="contained"
                   sx={{
                     bgcolor: "black",
@@ -117,7 +134,7 @@ const Index = () => {
                     "&:hover": { bgcolor: "grey.800" },
                   }}
                 >
-                  Get Started
+                  {authToken ? "Go to Dashboard" : "Get Started"}
                 </Button>
                 <Button
                   variant="outlined"
@@ -189,7 +206,6 @@ const Index = () => {
                       mb: 2,
                     }}
                   >
-                    {/* You can replace this with SvgIcon or similar */}
                     <Box
                       component="svg"
                       viewBox="0 0 24 24"
@@ -221,47 +237,13 @@ const Index = () => {
         </Container>
       </Box>
 
-      {/* Call to Action */}
-      <Box
-        sx={{
-          backgroundColor: "primary.main",
-          py: 8,
-          textAlign: "center",
-          color: "white",
-        }}
-      >
-        <Container maxWidth="md">
-          <Typography variant="h4" sx={{ fontWeight: "bold", mb: 2 }}>
-            Ready to boost your productivity?
-          </Typography>
-          <Typography variant="h6" sx={{ mb: 4 }}>
-            Join thousands of teams already using TaskFlow to streamline their
-            projects and workflows.
-          </Typography>
-          <Button
-            component={Link}
-            to="/register"
-            variant="contained"
-            sx={{
-              bgcolor: "black",
-              color: "white",
-              px: 4,
-              textTransform: "none",
-              "&:hover": { bgcolor: "grey.800" },
-            }}
-          >
-            Get Started for Free
-          </Button>
-        </Container>
-      </Box>
-
       {/* Footer */}
       <Box sx={{ backgroundColor: "#1E293B", color: "white", py: 6 }}>
         <Container maxWidth="lg">
           <Grid container spacing={4}>
             <Grid item xs={12} md={3}>
               <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
-                TaskFlow
+                Task Groove
               </Typography>
               <Typography variant="body2" color="grey.300">
                 Modern project management solution for teams of all sizes.
@@ -319,7 +301,7 @@ const Index = () => {
             }}
           >
             <Typography variant="body2" color="grey.400">
-              © {new Date().getFullYear()} TaskFlow. All rights reserved.
+              © {new Date().getFullYear()} Task Groove. All rights reserved.
             </Typography>
             <Box sx={{ display: "flex", gap: 2 }}>
               {["Terms", "Privacy", "Cookies"].map((item) => (

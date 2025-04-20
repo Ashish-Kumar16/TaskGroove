@@ -1,9 +1,12 @@
+// src/App.jsx
 import React from "react";
 import { Provider } from "react-redux";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { createTheme, ThemeProvider, CssBaseline } from "@mui/material";
+import { createTheme, CssBaseline } from "@mui/material";
 import { store } from "./store/store";
+import CleanThemeProvider from "./components/CleanThemeProvider";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -21,7 +24,6 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Customize Material UI theme here
 const theme = createTheme({
   palette: {
     mode: "light",
@@ -31,29 +33,92 @@ const theme = createTheme({
 const App = () => (
   <Provider store={store}>
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
+      <CleanThemeProvider theme={theme}>
         <CssBaseline />
-        <BrowserRouter>
+        <BrowserRouter
+          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        >
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<Index />} />{" "}
+            {/* Removed ProtectedRoute */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/projects/new" element={<NewProject />} />
-            <Route path="/projects/:projectId" element={<ProjectDetail />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/projects"
+              element={
+                <ProtectedRoute>
+                  <Projects />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/projects/new"
+              element={
+                <ProtectedRoute>
+                  <NewProject />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/projects/:projectId"
+              element={
+                <ProtectedRoute>
+                  <ProjectDetail />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/projects/:projectId/board"
-              element={<ProjectBoard />}
+              element={
+                <ProtectedRoute>
+                  <ProjectBoard />
+                </ProtectedRoute>
+              }
             />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/tasks/new" element={<NewTask />} />
-            <Route path="/team" element={<Team />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route
+              path="/tasks"
+              element={
+                <ProtectedRoute>
+                  <Tasks />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tasks/new"
+              element={
+                <ProtectedRoute>
+                  <NewTask />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/team"
+              element={
+                <ProtectedRoute>
+                  <Team />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-      </ThemeProvider>
+      </CleanThemeProvider>
     </QueryClientProvider>
   </Provider>
 );

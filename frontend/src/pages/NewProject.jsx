@@ -1,3 +1,4 @@
+// src/pages/NewProject.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
@@ -18,10 +19,13 @@ import {
   MenuItem,
   CircularProgress,
 } from "@mui/material";
+import { useAppDispatch } from "@/hooks/useAppRedux";
+import { addProject } from "@/store/projectsSlice";
 
 const NewProject = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -39,7 +43,7 @@ const NewProject = () => {
     setFormData((prev) => ({ ...prev, status: e.target.value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.name.trim()) {
@@ -60,13 +64,29 @@ const NewProject = () => {
     }
 
     setLoading(true);
-    setTimeout(() => {
+    const projectData = {
+      name: formData.name,
+      description: formData.description,
+      dueDate: formData.dueDate,
+      status: formData.status,
+    };
+
+    try {
+      await dispatch(addProject(projectData)).unwrap();
       toast({
         title: "Project created",
         description: "Your new project has been created successfully.",
       });
       navigate("/projects");
-    }, 500);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create project.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

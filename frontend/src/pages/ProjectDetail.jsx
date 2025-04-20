@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Box,
   Button,
@@ -21,7 +22,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TextField,
 } from "@mui/material";
 import {
   Calendar,
@@ -34,56 +34,10 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { fetchProjectById, updateProject } from "../store/projectsSlice";
+import { fetchTasksByProject } from "../store/tasksSlice";
 
-// Mock data arrays omitted for brevity
-const projectsData = [
-  {
-    id: "1",
-    name: "Website Redesign",
-    description: "Redesign the company website with new branding",
-    status: "In Progress",
-    progress: 65,
-    dueDate: "2023-07-15",
-    team: [
-      {
-        id: 1,
-        name: "John Doe",
-        avatar: "https://ui-avatars.com/api/?name=John+Doe&background=random",
-      },
-      {
-        id: 2,
-        name: "Jane Smith",
-        avatar: "https://ui-avatars.com/api/?name=Jane+Smith&background=random",
-      },
-    ],
-    tasks: [
-      { id: 1, title: "Research competitors", status: "Completed" },
-      { id: 2, title: "Create wireframes", status: "In Progress" },
-      { id: 3, title: "Design homepage", status: "In Progress" },
-      { id: 4, title: "Implement frontend", status: "Not Started" },
-    ],
-  },
-  {
-    id: "2",
-    name: "Mobile App Development",
-    description: "Develop a new mobile application for customers",
-    status: "Not Started",
-    progress: 15,
-    dueDate: "2023-09-30",
-    team: [
-      {
-        id: 3,
-        name: "Mike Johnson",
-        avatar:
-          "https://ui-avatars.com/api/?name=Mike+Johnson&background=random",
-      },
-    ],
-    tasks: [
-      { id: 5, title: "Define requirements", status: "In Progress" },
-      { id: 6, title: "Create mockups", status: "Not Started" },
-    ],
-  },
-];
+// Fallback list of all possible members (replace with API call in real app)
 const allTeamMembers = [
   {
     id: 1,
@@ -126,40 +80,78 @@ const allTeamMembers = [
 const ProjectDetail = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { toast } = useToast();
 
-  const [project, setProject] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { currentProject, loading: projectLoading } = useSelector(
+    (state) => state.projects,
+  );
+  const { tasks, loading: tasksLoading } = useSelector((state) => state.tasks);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState("");
 
   useEffect(() => {
-    const found = projectsData.find((p) => p.id === projectId);
-    if (found) {
-      setProject(found);
-    } else {
+    dispatch(fetchProjectById(projectId));
+    dispatch(fetchTasksByProject(projectId));
+  }, [projectId, dispatch]);
+
+  const handleAddTeamMember = async () => {
+    if (!selectedMember) return;
+
+    try {
+      // prepare updated member IDs
+      const updatedIds = [
+        ...currentProject.members.map((m) => m._id || m.id),
+        selectedMember,
+      ];
+      await dispatch(
+        updateProject({
+          projectId: currentProject.id || currentProject._id,
+          projectData: { members: updatedIds },
+        }),
+      ).unwrap();
+
       toast({
-        title: "Project not found",
-        description: `Could not find project ${projectId}.`,
+        title: "Member added",
+        description: "Team member added successfully",
+      });
+      setSelectedMember("");
+      setDialogOpen(false);
+    } catch (err) {
+      toast({
+        title: "Error adding member",
+        description: err.message,
         variant: "destructive",
       });
-      navigate("/projects");
     }
-    setLoading(false);
-  }, [projectId, navigate, toast]);
-
-  const availableMembers = project
-    ? allTeamMembers.filter((m) => !project.team.some((tm) => tm.id === m.id))
-    : [];
-
-  const handleAddTeamMember = () => {
-    if (!selectedMember) return;
-    const member = allTeamMembers.find(
-      (m) => m.id.toString() === selectedMember,
-    );
-    setProject({ ...project, team: [...project.team, member] });
-    setSelectedMember("");
-    toast({ title: "Team member added", description: `${member.name} added.` });
   };
+
+  if (projectLoading || tasksLoading) {
+    return (
+      <DashboardLayout>
+        <Box p={4}>
+          <LinearProgress />
+        </Box>
+      </DashboardLayout>
+    );
+  }
+
+  if (!currentProject) {
+    return (
+      <DashboardLayout>
+        <Box p={4}>Project not found</Box>
+      </DashboardLayout>
+    );
+  }
+
+  // Task statistics
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter((t) => t.status === "Completed").length;
+  const inProgressTasks = tasks.filter(
+    (t) => t.status === "In Progress",
+  ).length;
+  const pendingTasks = tasks.filter((t) => t.status === "Not Started").length;
 
   const statusColor = (status) => {
     if (status === "Completed") return "success";
@@ -167,26 +159,18 @@ const ProjectDetail = () => {
     return "warning";
   };
 
-  // Task stats
-  const totalTasks = project?.tasks.length || 0;
-  const completedTasks =
-    project?.tasks.filter((t) => t.status === "Completed").length || 0;
-  const inProgressTasks =
-    project?.tasks.filter((t) => t.status === "In Progress").length || 0;
-  const pendingTasks =
-    project?.tasks.filter((t) => t.status === "Not Started").length || 0;
-
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <Box p={4}>Loading...</Box>
-      </DashboardLayout>
-    );
-  }
+  // filter available members to add
+  const availableMembers = allTeamMembers.filter(
+    (m) =>
+      !currentProject.members.some(
+        (mem) => mem._id === m.id || mem.id === m.id,
+      ),
+  );
 
   return (
     <DashboardLayout>
       <Box p={4}>
+        {/* Header */}
         <Box mb={3} display="flex" alignItems="center" gap={2}>
           <Button
             variant="outlined"
@@ -195,84 +179,97 @@ const ProjectDetail = () => {
           >
             Back
           </Button>
-          <Typography variant="h4">{project.name}</Typography>
-          <Chip label={project.status} color={statusColor(project.status)} />
+          <Typography variant="h4">{currentProject.name}</Typography>
+          <Chip
+            label={currentProject.status}
+            color={statusColor(currentProject.status)}
+          />
         </Box>
 
         <Grid container spacing={3}>
-          {/* Project Details */}
+          {/* Project Details Card */}
           <Grid item xs={12} md={6}>
             <Card>
               <CardHeader title="Project Details" />
               <CardContent>
                 <Typography variant="subtitle1" gutterBottom>
-                  {project.description}
+                  {currentProject.description}
                 </Typography>
                 <Box display="flex" alignItems="center" gap={1} mb={2}>
                   <Calendar size={16} />
                   <Typography>
-                    Due {new Date(project.dueDate).toLocaleDateString()}
+                    Due {new Date(currentProject.dueDate).toLocaleDateString()}
                   </Typography>
                 </Box>
                 <Typography variant="subtitle2">Progress</Typography>
                 <LinearProgress
                   variant="determinate"
-                  value={project.progress}
+                  value={
+                    totalTasks > 0
+                      ? Math.round((completedTasks / totalTasks) * 100)
+                      : 0
+                  }
                   sx={{ my: 1 }}
                 />
                 <Typography variant="body2">
-                  {project.progress}% Complete
+                  {totalTasks > 0
+                    ? Math.round((completedTasks / totalTasks) * 100)
+                    : 0}
+                  % Complete
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
 
-          {/* Team Members */}
+          {/* Team Members Card */}
           <Grid item xs={12} md={6}>
             <Card>
               <CardHeader
                 title="Team Members"
                 action={
-                  <IconButton onClick={() => {}}>
+                  <IconButton onClick={() => setDialogOpen(true)}>
                     <Plus />
                   </IconButton>
                 }
               />
               <CardContent>
                 <Box display="flex" gap={2} flexWrap="wrap">
-                  {project.team.map((member) => (
+                  {currentProject.members.map((mem) => (
                     <Box
-                      key={member.id}
+                      key={mem._id || mem.id}
                       display="flex"
                       alignItems="center"
                       gap={1}
                     >
-                      <Avatar src={member.avatar}>{member.name[0]}</Avatar>
+                      <Avatar src={mem.avatar}>{mem.name[0]}</Avatar>
                       <Box>
-                        <Typography variant="body2">{member.name}</Typography>
+                        <Typography variant="body2">{mem.name}</Typography>
                         <Typography variant="caption" color="textSecondary">
-                          {allTeamMembers.find((m) => m.id === member.id)?.role}
+                          {
+                            allTeamMembers.find(
+                              (m) => m.id === (mem._id || mem.id),
+                            )?.role
+                          }
                         </Typography>
                       </Box>
                     </Box>
                   ))}
                 </Box>
-                <Dialog
-                  open={!!selectedMember}
-                  onClose={() => setSelectedMember("")}
-                >
+
+                {/* Add Member Dialog */}
+                <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
                   <DialogTitle>Add Team Member</DialogTitle>
                   <DialogContent>
                     <FormControl fullWidth>
-                      <InputLabel id="add-member-label">Member</InputLabel>
+                      <InputLabel id="member-select-label">Member</InputLabel>
                       <Select
-                        labelId="add-member-label"
+                        labelId="member-select-label"
                         value={selectedMember}
                         label="Member"
                         onChange={(e) => setSelectedMember(e.target.value)}
                       >
                         {availableMembers.map((m) => (
-                          <MenuItem key={m.id} value={m.id.toString()}>
+                          <MenuItem key={m.id} value={m.id}>
                             {m.name} — {m.role}
                           </MenuItem>
                         ))}
@@ -280,9 +277,7 @@ const ProjectDetail = () => {
                     </FormControl>
                   </DialogContent>
                   <DialogActions>
-                    <Button onClick={() => setSelectedMember("")}>
-                      Cancel
-                    </Button>
+                    <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
                     <Button
                       onClick={handleAddTeamMember}
                       disabled={!selectedMember}
@@ -295,7 +290,7 @@ const ProjectDetail = () => {
             </Card>
           </Grid>
 
-          {/* Task Summary */}
+          {/* Task Summary Cards */}
           <Grid item xs={12}>
             <Grid container spacing={2}>
               {[
@@ -359,9 +354,9 @@ const ProjectDetail = () => {
               />
               <CardContent>
                 <Box display="flex" flexDirection="column" gap={2}>
-                  {project.tasks.map((task) => (
+                  {tasks.map((task) => (
                     <Box
-                      key={task.id}
+                      key={task._id || task.id}
                       display="flex"
                       justifyContent="space-between"
                       alignItems="center"
@@ -378,7 +373,11 @@ const ProjectDetail = () => {
                           color={statusColor(task.status)}
                         />
                       </Box>
-                      <Button onClick={() => navigate(`/tasks/${task.id}`)}>
+                      <Button
+                        onClick={() =>
+                          navigate(`/tasks/${task._id || task.id}`)
+                        }
+                      >
                         View
                       </Button>
                     </Box>

@@ -1,18 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import {
   Box,
   Container,
   Typography,
-  Grid,
   Card,
   CardHeader,
   CardContent,
-  CardActions,
-  Avatar,
   TextField,
-  IconButton,
   Button,
   Checkbox,
   Chip,
@@ -22,109 +18,53 @@ import {
   Menu,
   MenuItem,
   Divider,
+  CircularProgress,
+  Avatar,
 } from "@mui/material";
-import { Search, Plus, Filter, MoreHorizontal } from "lucide-react";
-
-// Mock Data
-const tasksData = [
-  {
-    id: 1,
-    title: "Design new dashboard",
-    description: "Create mockups for the new admin dashboard",
-    status: "In Progress",
-    priority: "High",
-    dueDate: "2023-05-15",
-    project: { id: 1, name: "Website Redesign" },
-    assignee: {
-      id: 1,
-      name: "John Doe",
-      avatar: "https://ui-avatars.com/api/?name=John+Doe&background=random",
-    },
-    completed: false,
-  },
-  {
-    id: 2,
-    title: "Implement authentication",
-    description: "Set up user authentication and authorization",
-    status: "To Do",
-    priority: "Medium",
-    dueDate: "2023-05-20",
-    project: { id: 2, name: "Backend API" },
-    assignee: {
-      id: 1,
-      name: "John Doe",
-      avatar: "https://ui-avatars.com/api/?name=John+Doe&background=random",
-    },
-    completed: false,
-  },
-  {
-    id: 3,
-    title: "Create user documentation",
-    description: "Write documentation for the user guide",
-    status: "To Do",
-    priority: "Low",
-    dueDate: "2023-05-25",
-    project: { id: 3, name: "Documentation" },
-    assignee: {
-      id: 2,
-      name: "Jane Smith",
-      avatar: "https://ui-avatars.com/api/?name=Jane+Smith&background=random",
-    },
-    completed: false,
-  },
-  {
-    id: 4,
-    title: "Fix navigation bug",
-    description: "Resolve issue with the mobile navigation menu",
-    status: "In Progress",
-    priority: "High",
-    dueDate: "2023-05-12",
-    project: { id: 1, name: "Website Redesign" },
-    assignee: {
-      id: 3,
-      name: "Mike Johnson",
-      avatar: "https://ui-avatars.com/api/?name=Mike+Johnson&background=random",
-    },
-    completed: false,
-  },
-  {
-    id: 5,
-    title: "Update dependencies",
-    description: "Update all packages to their latest versions",
-    status: "Done",
-    priority: "Medium",
-    dueDate: "2023-05-08",
-    project: { id: 2, name: "Backend API" },
-    assignee: {
-      id: 1,
-      name: "John Doe",
-      avatar: "https://ui-avatars.com/api/?name=John+Doe&background=random",
-    },
-    completed: true,
-  },
-];
+import { Search, Plus, MoreHorizontal } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "@/hooks/useAppRedux";
+import { fetchTasks, updateTask, deleteTask } from "@/store/tasksSlice";
+import { format } from "date-fns";
 
 const Tasks = () => {
-  const [tasks, setTasks] = useState(tasksData);
+  const dispatch = useAppDispatch();
+  const { tasks, loading, error } = useAppSelector((state) => state.tasks);
+  const currentUser = useAppSelector((state) => state.auth.user);
   const [searchQuery, setSearchQuery] = useState("");
   const [tabValue, setTabValue] = useState("all");
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuTaskId, setMenuTaskId] = useState(null);
   const navigate = useNavigate();
 
-  // Handlers
+  useEffect(() => {
+    dispatch(fetchTasks());
+  }, [dispatch]);
+
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
-  const toggleCompletion = (id) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
-    );
+  const toggleCompletion = async (task) => {
+    try {
+      await dispatch(
+        updateTask({
+          id: task._id,
+          completed: !task.completed,
+          status: !task.completed ? "Done" : "To Do",
+        }),
+      ).unwrap();
+    } catch (error) {
+      console.error("Failed to update task:", error);
+    }
   };
 
-  const deleteTask = (id) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+  const deleteTaskHandler = async (id) => {
+    try {
+      await dispatch(deleteTask(id)).unwrap();
+      handleMenuClose();
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+    }
   };
 
   const handleMenuOpen = (event, id) => {
@@ -137,20 +77,20 @@ const Tasks = () => {
     setMenuTaskId(null);
   };
 
-  // Filtering
-  const filtered = tasks.filter((task) => {
-    const q = searchQuery.toLowerCase();
-    const matchSearch =
-      task.title.toLowerCase().includes(q) ||
-      task.description.toLowerCase().includes(q) ||
-      task.project.name.toLowerCase().includes(q);
+  const filteredTasks = tasks.filter((task) => {
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch =
+      task.title.toLowerCase().includes(searchLower) ||
+      (task.description &&
+        task.description.toLowerCase().includes(searchLower)) ||
+      (task.project?.name &&
+        task.project.name.toLowerCase().includes(searchLower));
 
-    if (!matchSearch) return false;
+    if (!matchesSearch) return false;
 
     switch (tabValue) {
       case "mine":
-        // stubbed: filter by assignee id === 1
-        return task.assignee.id === 1;
+        return task.assignee?._id === currentUser?._id;
       case "completed":
         return task.completed;
       case "overdue":
@@ -160,10 +100,27 @@ const Tasks = () => {
     }
   });
 
+  if (loading)
+    return (
+      <DashboardLayout>
+        <Container sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress />
+        </Container>
+      </DashboardLayout>
+    );
+
+  if (error)
+    return (
+      <DashboardLayout>
+        <Container sx={{ py: 4 }}>
+          <Typography color="error">Error: {error}</Typography>
+        </Container>
+      </DashboardLayout>
+    );
+
   return (
     <DashboardLayout>
       <Container sx={{ py: 4 }}>
-        {/* Header */}
         <Box
           sx={{
             display: "flex",
@@ -188,16 +145,13 @@ const Tasks = () => {
             onClick={() => navigate("/tasks/new")}
             sx={{
               background: "black",
-              "&:hover": {
-                backgroundColor: "#333333",
-              },
+              "&:hover": { backgroundColor: "#333333" },
             }}
           >
             Add Task
           </Button>
         </Box>
 
-        {/* Search & Filter */}
         <Box
           sx={{
             display: "flex",
@@ -220,145 +174,175 @@ const Tasks = () => {
               ),
             }}
           />
-          <Button variant="outlined" startIcon={<Filter size={16} />}>
-            Filter
-          </Button>
         </Box>
 
-        {/* Tabs */}
-        <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 3 }}>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          sx={{ mb: 3 }}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
           <Tab label="All Tasks" value="all" />
           <Tab label="My Tasks" value="mine" />
           <Tab label="Completed" value="completed" />
           <Tab label="Overdue" value="overdue" />
         </Tabs>
 
-        {/* Task Table */}
         <Card>
           <CardHeader
             title={
               <Box
                 sx={{
                   display: "grid",
-                  gridTemplateColumns: "5fr 2fr 2fr 2fr 1fr auto",
+                  gridTemplateColumns: "40px 1fr 120px 120px 120px 120px 40px",
                   fontWeight: "medium",
                   fontSize: 14,
+                  alignItems: "center",
+                  gap: 1,
                 }}
               >
+                <span></span>
                 <span>Task</span>
                 <span>Status</span>
                 <span>Due Date</span>
                 <span>Project</span>
                 <span>Assignee</span>
-                <span />
+                <span></span>
               </Box>
             }
           />
           <Divider />
           <CardContent sx={{ p: 0 }}>
-            {filtered.length === 0 ? (
+            {filteredTasks.length === 0 ? (
               <Box sx={{ p: 3, textAlign: "center", color: "text.secondary" }}>
-                No tasks found. Try adjusting your search.
+                No tasks found matching your criteria
               </Box>
             ) : (
-              filtered.map((task) => (
+              filteredTasks.map((task) => (
                 <Box
-                  key={task.id}
+                  key={task._id}
                   sx={{
                     display: "grid",
-                    gridTemplateColumns: "5fr 2fr 2fr 2fr 1fr auto",
+                    gridTemplateColumns:
+                      "40px 1fr 120px 120px 120px 120px 40px",
                     alignItems: "center",
                     gap: 1,
-                    p: 1,
+                    p: 2,
                     "&:hover": { backgroundColor: "action.hover" },
+                    borderBottom: "1px solid",
+                    borderColor: "divider",
                   }}
                 >
-                  {/* Title + Checkbox */}
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Checkbox
-                      checked={task.completed}
-                      onChange={() => toggleCompletion(task.id)}
-                      size="small"
-                    />
-                    <Box>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          textDecoration: task.completed
-                            ? "line-through"
-                            : "none",
-                          color: task.completed
-                            ? "text.secondary"
-                            : "text.primary",
-                        }}
-                      >
-                        {task.title}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        noWrap
-                        sx={{ color: "text.secondary" }}
-                      >
-                        {task.description}
-                      </Typography>
-                    </Box>
+                  <Checkbox
+                    checked={task.completed}
+                    onChange={() => toggleCompletion(task)}
+                    size="small"
+                    color="primary"
+                  />
+
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: "medium",
+                        textDecoration: task.completed
+                          ? "line-through"
+                          : "none",
+                        color: task.completed
+                          ? "text.secondary"
+                          : "text.primary",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {task.title}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "text.secondary",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "block",
+                      }}
+                    >
+                      {task.description}
+                    </Typography>
                   </Box>
 
-                  {/* Status */}
                   <Chip
                     label={task.status}
                     size="small"
-                    variant="outlined"
                     sx={{
-                      borderColor:
-                        task.status === "In Progress"
-                          ? "primary.main"
-                          : task.status === "To Do"
-                          ? "grey.500"
-                          : "success.main",
+                      backgroundColor:
+                        task.status === "Done"
+                          ? "success.light"
+                          : task.status === "In Progress"
+                          ? "info.light"
+                          : "grey.100",
                       color:
-                        task.status === "In Progress"
-                          ? "primary.main"
-                          : task.status === "To Do"
-                          ? "grey.700"
-                          : "success.main",
+                        task.status === "Done"
+                          ? "success.dark"
+                          : task.status === "In Progress"
+                          ? "info.dark"
+                          : "text.primary",
                     }}
                   />
 
-                  {/* Due Date */}
                   <Typography variant="body2">
-                    {new Date(task.dueDate).toLocaleDateString()}
+                    {task.dueDate
+                      ? format(new Date(task.dueDate), "MMM dd, yyyy")
+                      : "-"}
                   </Typography>
 
-                  {/* Project */}
-                  <Typography variant="body2">{task.project.name}</Typography>
+                  <Typography variant="body2" noWrap>
+                    {task.project?.name || "-"}
+                  </Typography>
 
-                  {/* Assignee */}
-                  <Avatar
-                    src={task.assignee.avatar}
-                    sx={{ width: 28, height: 28, margin: "0 auto" }}
-                  >
-                    {task.assignee.name.slice(0, 2).toUpperCase()}
-                  </Avatar>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    {task.assignee?.avatar ? (
+                      <Avatar
+                        src={task.assignee.avatar}
+                        sx={{ width: 24, height: 24 }}
+                      />
+                    ) : (
+                      <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>
+                        {task.assignee?.name?.charAt(0) || "?"}
+                      </Avatar>
+                    )}
+                    <Typography variant="body2" noWrap>
+                      {task.assignee?.name || "Unassigned"}
+                    </Typography>
+                  </Box>
 
-                  {/* Actions */}
-                  <IconButton
+                  <Button
                     size="small"
-                    onClick={(e) => handleMenuOpen(e, task.id)}
+                    onClick={(e) => handleMenuOpen(e, task._id)}
+                    sx={{ minWidth: 0 }}
                   >
                     <MoreHorizontal size={16} />
-                  </IconButton>
+                  </Button>
                 </Box>
               ))
             )}
           </CardContent>
         </Card>
 
-        {/* Menu for Actions */}
         <Menu
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
+          anchorOrigin={{
+            vertical: "bottom",
+            horizontal: "right",
+          }}
+          transformOrigin={{
+            vertical: "top",
+            horizontal: "right",
+          }}
         >
           <MenuItem
             onClick={() => {
@@ -378,10 +362,7 @@ const Tasks = () => {
           </MenuItem>
           <Divider />
           <MenuItem
-            onClick={() => {
-              deleteTask(menuTaskId);
-              handleMenuClose();
-            }}
+            onClick={() => deleteTaskHandler(menuTaskId)}
             sx={{ color: "error.main" }}
           >
             Delete Task

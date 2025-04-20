@@ -16,209 +16,113 @@ import {
   Chip,
   Paper,
   Divider,
+  Skeleton,
 } from "@mui/material";
 import DashboardLayout from "../components/layouts/DashboardLayout.jsx";
-
-// Mock Data
-const recentActivities = [
-  {
-    id: 1,
-    action: "commented on task",
-    task: "Update homepage design",
-    time: "2 hours ago",
-    project: "Website Redesign",
-  },
-  {
-    id: 2,
-    action: "completed task",
-    task: "Create API documentation",
-    time: "5 hours ago",
-    project: "Backend API",
-  },
-  {
-    id: 3,
-    action: "updated status to",
-    task: "Fix navigation bug",
-    status: "In Progress",
-    time: "Yesterday",
-    project: "Bug Fixes",
-  },
-];
-
-const assignedTasks = [
-  {
-    id: 1,
-    title: "Design new dashboard",
-    status: "In Progress",
-    dueDate: "2023-05-15",
-    priority: "High",
-    project: "Website Redesign",
-  },
-  {
-    id: 2,
-    title: "Implement authentication",
-    status: "To Do",
-    dueDate: "2023-05-20",
-    priority: "Medium",
-    project: "Backend API",
-  },
-  {
-    id: 3,
-    title: "Create user documentation",
-    status: "To Do",
-    dueDate: "2023-05-25",
-    priority: "Low",
-    project: "Documentation",
-  },
-];
-
-const projects = [
-  {
-    id: 1,
-    name: "Website Redesign",
-    progress: 60,
-    tasksCompleted: 12,
-    totalTasks: 20,
-  },
-  {
-    id: 2,
-    name: "Backend API",
-    progress: 30,
-    tasksCompleted: 5,
-    totalTasks: 15,
-  },
-  {
-    id: 3,
-    name: "Mobile App",
-    progress: 10,
-    tasksCompleted: 2,
-    totalTasks: 18,
-  },
-];
+import { useAppDispatch, useAppSelector } from "@/hooks/useAppRedux";
+import { fetchUserProjects } from "@/store/projectsSlice";
+import { fetchAssignedTasks } from "@/store/tasksSlice";
 
 const Dashboard = () => {
-  const [user, setUser] = useState(null);
-  const [tab, setTab] = useState("overview");
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const authToken = localStorage.getItem("authToken");
+  const storedUser = JSON.parse(localStorage.getItem("user"));
+  const reduxUser = useAppSelector((state) => state.auth?.user);
+  const member = useAppSelector((state) =>
+    state.members.members.find((m) => m.email === storedUser?.email),
+  );
+  const user = member || reduxUser || storedUser;
+  const projects = useAppSelector((state) => state.projects.projects) || [];
+  const assignedTasks = useAppSelector((state) => state.tasks.tasks) || [];
+  const loading = useAppSelector(
+    (state) => state.projects.loading || state.tasks.loading,
+  );
+  const [tab, setTab] = useState("overview");
 
   useEffect(() => {
-    const authToken = localStorage.getItem("authToken");
-    const userData = localStorage.getItem("user");
-
-    if (!authToken || !userData) {
-      navigate("/login");
+    if (!authToken) {
+      navigate("/login", { replace: true });
       return;
     }
 
-    setUser(JSON.parse(userData));
-  }, [navigate]);
+    if (!user) {
+      console.log("Dashboard: No user data found, but token exists");
+    }
 
-  if (!user) return null;
+    dispatch(fetchUserProjects());
+    dispatch(fetchAssignedTasks());
+  }, [dispatch, navigate, authToken, user]);
 
   const handleTabChange = (event, newValue) => {
     setTab(newValue);
   };
 
+  if (!user) {
+    return null;
+  }
+
+  const recentActivities = assignedTasks.slice(0, 5).map((task) => ({
+    id: task.id,
+    action: task.completed ? "completed" : "updated",
+    task: task.title,
+    status: task.status,
+    project: task.project?.name || "Unknown Project",
+    time: new Date(task.dueDate).toLocaleTimeString(),
+  }));
+
   return (
     <DashboardLayout>
       <Box sx={{ p: 3 }}>
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            alignItems: { md: "center" },
-            justifyContent: "space-between",
-            mb: 3,
-            gap: 2,
-          }}
-        >
+        {loading ? (
           <Box>
-            <Typography variant="h4" gutterBottom>
-              Welcome back, {user.name}
-            </Typography>
-            <Typography color="textSecondary">
-              Here's what's happening with your projects today.
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            onClick={() => navigate("/projects/new")}
-            sx={{
-              background: "black",
-              "&:hover": {
-                backgroundColor: "#333333",
-              },
-            }}
-          >
-            New Project
-          </Button>
-        </Box>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: { xs: "column", md: "row" },
+                alignItems: { md: "center" },
+                justifyContent: "space-between",
+                mb: 3,
+                gap: 2,
+              }}
+            >
+              <Box>
+                <Skeleton variant="text" width={200} height={40} />
+                <Skeleton variant="text" width={300} height={20} />
+              </Box>
+              <Skeleton variant="rectangular" width={120} height={36} />
+            </Box>
 
-        <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 3 }}>
-          <Tab label="Overview" value="overview" />
-          <Tab label="My Tasks" value="tasks" />
-          <Tab label="Projects" value="projects" />
-        </Tabs>
+            <Box sx={{ mb: 3 }}>
+              <Skeleton variant="rectangular" width={300} height={48} />
+            </Box>
 
-        {tab === "overview" && (
-          <Box>
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} md={4}>
-                <Card>
-                  <CardHeader title="Total Projects" />
-                  <CardContent>
-                    <Typography variant="h5">{projects.length}</Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      +2 from last month
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Card>
-                  <CardHeader title="Tasks Assigned" />
-                  <CardContent>
-                    <Typography variant="h5">{assignedTasks.length}</Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      1 due today
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Card>
-                  <CardHeader title="Completion Rate" />
-                  <CardContent>
-                    <Typography variant="h5">68%</Typography>
-                    <Box sx={{ mt: 1 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={68}
-                        sx={{
-                          // make the track a light grey:
-                          backgroundColor: (theme) => theme.palette.grey[300],
-                          // fill the bar itself in black:
-                          "& .MuiLinearProgress-bar": {
-                            backgroundColor: "#000",
-                          },
-                        }}
-                      />
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
+              {[...Array(3)].map((_, index) => (
+                <Grid item xs={12} md={4} key={index}>
+                  <Card>
+                    <CardHeader
+                      title={<Skeleton variant="text" width={100} />}
+                    />
+                    <CardContent>
+                      <Skeleton variant="text" width={50} height={40} />
+                      <Skeleton variant="text" width={120} />
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
             </Grid>
 
             <Card>
               <CardHeader
-                title="Recent Activity"
-                subheader="Your latest actions across projects"
+                title={<Skeleton variant="text" width={150} />}
+                subheader={<Skeleton variant="text" width={200} />}
               />
               <Divider />
               <CardContent>
                 <Grid container spacing={2}>
-                  {recentActivities.map((activity) => (
-                    <Grid item xs={12} key={activity.id}>
+                  {[...Array(5)].map((_, index) => (
+                    <Grid item xs={12} key={index}>
                       <Paper
                         sx={{
                           p: 2,
@@ -227,20 +131,10 @@ const Dashboard = () => {
                           gap: 2,
                         }}
                       >
-                        <Avatar src={user.avatar}>
-                          {user.name.slice(0, 2).toUpperCase()}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="body2">
-                            You {activity.action}{" "}
-                            <strong>{activity.task}</strong>
-                            {activity.status && (
-                              <strong> {activity.status}</strong>
-                            )}
-                          </Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            {activity.project} • {activity.time}
-                          </Typography>
+                        <Skeleton variant="circular" width={40} height={40} />
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Skeleton variant="text" width="80%" />
+                          <Skeleton variant="text" width="60%" />
                         </Box>
                       </Paper>
                     </Grid>
@@ -249,130 +143,272 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           </Box>
-        )}
-
-        {tab === "tasks" && (
-          <Card>
-            <CardHeader
-              title="My Tasks"
-              subheader="Tasks assigned to you across all projects"
-            />
-            <Divider />
-            <CardContent>
-              <Grid container spacing={2}>
-                {assignedTasks.map((task) => (
-                  <Grid item xs={12} key={task.id}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        p: 2,
-                        border: 1,
-                        borderColor: "divider",
-                        borderRadius: 1,
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="subtitle1">
-                          {task.title}
-                        </Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {task.project} • Due:{" "}
-                          {new Date(task.dueDate).toLocaleDateString()}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: "flex", gap: 1 }}>
-                        <Chip
-                          label={task.priority}
-                          color={
-                            task.priority === "High"
-                              ? "error"
-                              : task.priority === "Medium"
-                              ? "warning"
-                              : "success"
-                          }
-                          size="small"
-                        />
-                        <Chip
-                          label={task.status}
-                          variant="outlined"
-                          size="small"
-                        />
-                      </Box>
-                    </Box>
-                  </Grid>
-                ))}
-              </Grid>
-            </CardContent>
-            <CardActions>
-              <Button
-                fullWidth
-                variant="outlined"
-                onClick={() => navigate("/tasks")}
-              >
-                View All Tasks
-              </Button>
-            </CardActions>
-          </Card>
-        )}
-
-        {tab === "projects" && (
-          <Box>
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              {projects.map((project) => (
-                <Grid item xs={12} md={4} key={project.id}>
-                  <Card>
-                    <CardHeader
-                      title={project.name}
-                      subheader={`${project.tasksCompleted} of ${project.totalTasks} tasks completed`}
-                    />
-                    <Divider />
-                    <CardContent>
-                      <Box sx={{ mt: 1, mb: 1 }}>
-                        <LinearProgress
-                          variant="determinate"
-                          value={project.progress}
-                          sx={{
-                            // light grey track
-                            backgroundColor: (theme) => theme.palette.grey[300],
-                            // black fill bar
-                            "& .MuiLinearProgress-bar": {
-                              backgroundColor: "#000",
-                            },
-                          }}
-                        />
-                      </Box>
-                      <Typography
-                        variant="caption"
-                        color="textSecondary"
-                        align="right"
-                      >
-                        {project.progress}% complete
-                      </Typography>
-                    </CardContent>
-                    <CardActions>
-                      <Button
-                        fullWidth
-                        variant="text"
-                        onClick={() => navigate(`/projects/${project.id}`)}
-                        sx={{ color: "black" }}
-                      >
-                        View Project
-                      </Button>
-                    </CardActions>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-            <Button
-              //   fullWidth
-              variant="outlined"
-              onClick={() => navigate("/projects")}
-              sx={{ color: "black" }}
+        ) : (
+          <>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: { xs: "column", md: "row" },
+                alignItems: { md: "center" },
+                justifyContent: "space-between",
+                mb: 3,
+                gap: 2,
+              }}
             >
-              View All Projects
-            </Button>
-          </Box>
+              <Box>
+                <Typography variant="h4" gutterBottom>
+                  Welcome back, {user.name}
+                </Typography>
+                <Typography color="textSecondary">
+                  Here's what's happening with your projects today.
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                onClick={() => navigate("/projects/new")}
+                sx={{
+                  background: "black",
+                  "&:hover": { backgroundColor: "#333333" },
+                }}
+              >
+                New Project
+              </Button>
+            </Box>
+
+            <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 3 }}>
+              <Tab label="Overview" value="overview" />
+              <Tab label="My Tasks" value="tasks" />
+              <Tab label="Projects" value="projects" />
+            </Tabs>
+
+            {tab === "overview" && (
+              <Box>
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  <Grid item xs={12} md={4}>
+                    <Card>
+                      <CardHeader title="Total Projects" />
+                      <CardContent>
+                        <Typography variant="h5">{projects.length}</Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          +2 from last month
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <Card>
+                      <CardHeader title="Tasks Assigned" />
+                      <CardContent>
+                        <Typography variant="h5">
+                          {assignedTasks.length}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          1 due today
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <Card>
+                      <CardHeader title="Completion Rate" />
+                      <CardContent>
+                        <Typography variant="h5">68%</Typography>
+                        <Box sx={{ mt: 1 }}>
+                          <LinearProgress
+                            variant="determinate"
+                            value={68}
+                            sx={{
+                              backgroundColor: (theme) =>
+                                theme.palette.grey[300],
+                              "& .MuiLinearProgress-bar": {
+                                backgroundColor: "#000",
+                              },
+                            }}
+                          />
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                </Grid>
+
+                <Card>
+                  <CardHeader
+                    title="Recent Activity"
+                    subheader="Your latest actions across projects"
+                  />
+                  <Divider />
+                  <CardContent>
+                    <Grid container spacing={2}>
+                      {recentActivities.map((activity) => (
+                        <Grid item xs={12} key={activity.id}>
+                          <Paper
+                            sx={{
+                              p: 2,
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 2,
+                            }}
+                          >
+                            <Avatar src={user.avatar}>
+                              {user.name.slice(0, 2).toUpperCase()}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="body2">
+                                You {activity.action}{" "}
+                                <strong>{activity.task}</strong>
+                                {activity.status && (
+                                  <strong> {activity.status}</strong>
+                                )}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="textSecondary"
+                              >
+                                {activity.project} • {activity.time}
+                              </Typography>
+                            </Box>
+                          </Paper>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </CardContent>
+                </Card>
+              </Box>
+            )}
+
+            {tab === "tasks" && (
+              <Card>
+                <CardHeader
+                  title="My Tasks"
+                  subheader="Tasks assigned to you across all projects"
+                />
+                <Divider />
+                <CardContent>
+                  <Grid container spacing={2}>
+                    {assignedTasks.map((task) => (
+                      <Grid item xs={12} key={task.id}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            p: 2,
+                            border: 1,
+                            borderColor: "divider",
+                            borderRadius: 1,
+                          }}
+                        >
+                          <Box>
+                            <Typography variant="subtitle1">
+                              {task.title}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary">
+                              {task.project?.name || "Unknown Project"} • Due:{" "}
+                              {new Date(task.dueDate).toLocaleDateString()}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: "flex", gap: 1 }}>
+                            <Chip
+                              label={task.priority}
+                              color={
+                                task.priority === "High"
+                                  ? "error"
+                                  : task.priority === "Medium"
+                                  ? "warning"
+                                  : "success"
+                              }
+                              size="small"
+                            />
+                            <Chip
+                              label={task.status}
+                              variant="outlined"
+                              size="small"
+                            />
+                          </Box>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </CardContent>
+                <CardActions>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    onClick={() => navigate("/tasks")}
+                  >
+                    View All Tasks
+                  </Button>
+                </CardActions>
+              </Card>
+            )}
+
+            {tab === "projects" && (
+              <Box>
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  {projects.map((project) => {
+                    const progress =
+                      project.progress !== undefined && !isNaN(project.progress)
+                        ? Math.min(Math.max(project.progress, 0), 100)
+                        : 0;
+
+                    return (
+                      <Grid item xs={12} md={4} key={project.id}>
+                        <Card>
+                          <CardHeader
+                            title={project.name}
+                            subheader={`${project.tasksCompleted || 0} of ${
+                              project.totalTasks || 0
+                            } tasks completed`}
+                          />
+                          <Divider />
+                          <CardContent>
+                            <Box sx={{ mt: 1, mb: 1 }}>
+                              <LinearProgress
+                                variant="determinate"
+                                value={progress}
+                                sx={{
+                                  backgroundColor: (theme) =>
+                                    theme.palette.grey[300],
+                                  "& .MuiLinearProgress-bar": {
+                                    backgroundColor: "#000",
+                                  },
+                                }}
+                              />
+                            </Box>
+                            <Typography
+                              variant="caption"
+                              color="textSecondary"
+                              align="right"
+                            >
+                              {progress}% complete
+                            </Typography>
+                          </CardContent>
+                          <CardActions>
+                            <Button
+                              fullWidth
+                              variant="text"
+                              onClick={() =>
+                                navigate(`/projects/${project.id}`)
+                              }
+                              sx={{ color: "black" }}
+                            >
+                              View Project
+                            </Button>
+                          </CardActions>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate("/projects")}
+                  sx={{ color: "black" }}
+                >
+                  View All Projects
+                </Button>
+              </Box>
+            )}
+          </>
         )}
       </Box>
     </DashboardLayout>

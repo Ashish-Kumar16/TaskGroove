@@ -1,71 +1,118 @@
-import { createSlice } from "@reduxjs/toolkit";
+// src/store/projectsSlice.js
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import * as api from "../lib/api";
 
-const initialState = {
-  projects: [
-    {
-      id: 1,
-      name: "Website Redesign",
-      description: "Redesign the company website with new branding",
-      status: "In Progress",
-      progress: 65,
-      dueDate: "2023-07-15",
-      members: [],
-    },
-    // ... more projects
-  ],
-  loading: false,
-  error: null,
-};
+export const fetchProjects = createAsyncThunk(
+  "projects/fetchProjects",
+  async () => {
+    return await api.fetchProjects();
+  },
+);
 
+export const fetchUserProjects = createAsyncThunk(
+  "projects/fetchUserProjects",
+  async () => {
+    return await api.fetchUserProjects();
+  },
+);
+
+export const addProject = createAsyncThunk(
+  "projects/addProject",
+  async (projectData) => {
+    return await api.createProject(projectData);
+  },
+);
+
+export const deleteProject = createAsyncThunk(
+  "projects/deleteProject",
+  async (projectId) => {
+    await api.deleteProject(projectId);
+    return projectId;
+  },
+);
+export const fetchProjectById = createAsyncThunk(
+  "projects/fetchProjectById",
+  async (projectId) => {
+    const project = await api.fetchProjectById(projectId);
+    return {
+      ...project,
+      id: project._id,
+      team: project.members.map((member) => ({
+        id: member._id,
+        name: member.name,
+        avatar: member.avatar,
+        role: member.role,
+      })),
+    };
+  },
+);
+
+export const updateProject = createAsyncThunk(
+  "projects/updateProject",
+  async ({ projectId, projectData }) => {
+    const updatedProject = await api.updateProject(projectId, projectData);
+    return {
+      ...updatedProject,
+      id: updatedProject._id,
+      team: updatedProject.members.map((member) => ({
+        id: member._id,
+        name: member.name,
+        avatar: member.avatar,
+        role: member.role,
+      })),
+    };
+  },
+);
 const projectsSlice = createSlice({
   name: "projects",
-  initialState,
-  reducers: {
-    addProject: (state, action) => {
-      state.projects.push(action.payload);
-    },
-    removeProject: (state, action) => {
-      state.projects = state.projects.filter(
-        (project) => project.id !== action.payload,
-      );
-    },
-    updateProject: (state, action) => {
-      const index = state.projects.findIndex(
-        (project) => project.id === action.payload.id,
-      );
-      if (index !== -1) {
-        state.projects[index] = action.payload;
-      }
-    },
-    addMemberToProject: (state, action) => {
-      const project = state.projects.find(
-        (p) => p.id === action.payload.projectId,
-      );
-      if (
-        project &&
-        !project.members.some((m) => m.id === action.payload.member.id)
-      ) {
-        project.members.push(action.payload.member);
-      }
-    },
-    removeMemberFromProject: (state, action) => {
-      const project = state.projects.find(
-        (p) => p.id === action.payload.projectId,
-      );
-      if (project) {
-        project.members = project.members.filter(
-          (m) => m.id !== action.payload.memberId,
+  initialState: { projects: [], loading: false, error: null },
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchProjects.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchProjects.fulfilled, (state, action) => {
+        state.loading = false;
+        state.projects = action.payload;
+      })
+      .addCase(fetchProjects.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+      })
+      .addCase(fetchUserProjects.fulfilled, (state, action) => {
+        state.loading = false;
+        state.projects = action.payload;
+      })
+      .addCase(addProject.fulfilled, (state, action) => {
+        state.projects.push(action.payload);
+      })
+      .addCase(deleteProject.fulfilled, (state, action) => {
+        state.projects = state.projects.filter(
+          (project) => project.id !== action.payload,
         );
-      }
-    },
+      })
+      .addCase(fetchProjectById.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchProjectById.fulfilled, (state, action) => {
+        state.loading = false;
+        state.currentProject = action.payload;
+      })
+      .addCase(fetchProjectById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+      })
+      .addCase(updateProject.fulfilled, (state, action) => {
+        const index = state.projects.findIndex(
+          (p) => p.id === action.payload.id,
+        );
+        if (index !== -1) state.projects[index] = action.payload;
+        if (state.currentProject?.id === action.payload.id) {
+          state.currentProject = action.payload;
+        }
+      });
   },
 });
 
-export const {
-  addProject,
-  removeProject,
-  updateProject,
-  addMemberToProject,
-  removeMemberFromProject,
-} = projectsSlice.actions;
 export default projectsSlice.reducer;
