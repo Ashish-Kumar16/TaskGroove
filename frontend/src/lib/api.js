@@ -1,5 +1,5 @@
 // src/lib/api.js
-const API_URL = "http://localhost:5000/api";
+const API_URL = "https://taskgroove.onrender.com/api";
 
 // Retrieve token from localStorage
 export const getToken = () => localStorage.getItem("authToken");
@@ -87,7 +87,7 @@ export const addProjectMember = (projectId, memberId) =>
     method: "POST",
     body: JSON.stringify({ memberId }),
   });
-  
+
 export const createProject = (projectData) =>
   apiFetch(`${API_URL}/projects`, {
     method: "POST",
